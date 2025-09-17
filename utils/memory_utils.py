@@ -3,7 +3,7 @@ import os
 import csv
 import json
 from utils.text_utils import _norm, _normalize_q
-import datetime
+from datetime import datetime
 
 def _append_rows_csv(path, rows, header):
     new_file = not os.path.exists(path)

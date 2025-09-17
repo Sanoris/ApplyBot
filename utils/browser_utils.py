@@ -188,3 +188,16 @@ def _locator_for_el(el):
     if name:
         return (By.CSS_SELECTOR, f'[name="{name}"]')
     return (By.XPATH, ".")
+
+def is_recaptcha_present(driver):
+    selectors = [
+        "//iframe[@title='reCAPTCHA']",
+        "//textarea[contains(@class, 'g-recaptcha-response')]",
+        "//div[@id='captcha-wrapper']"
+    ]
+    
+    for selector in selectors:
+        el = driver.find_elements(By.XPATH, selector)
+        if len(el) > 0 and el[0].is_displayed():
+            return True
+    return False
