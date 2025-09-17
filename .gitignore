@@ -1,0 +1,9 @@
+browser/
+data/qa_memory.json
+data/missed_required_questions.csv
+data/missed_required_counts.json
+data/applied_jobs_log.csv
+*.pyc
+__pycache__/
+config/resume.txt
+config/config.py
