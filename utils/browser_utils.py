@@ -12,7 +12,7 @@ def setup_driver():
     options = uc.ChromeOptions()
     options.add_argument(f"--user-data-dir={config.PROFILE_PATH}")
     options.add_argument(f"--profile-directory={config.PROFILE_NAME}")  # or 'Profile 1', etc.
-    options.add_argument("--window-size=1280,800")
+    options.add_argument("--window-size=1080,1080")
     driver = uc.Chrome(use_subprocess=True, options=options)
     driver.implicitly_wait(5)
     return driver
