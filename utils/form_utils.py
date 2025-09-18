@@ -243,7 +243,7 @@ def click_apply(driver):
         print(f"Apply button click failed: {e}")
         return False
 
-def _click_first(driver, selectors, timeout=3):
+def _click_first(driver, selectors, timeout=2):
     for xp in selectors:
         try:
             el = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((By.XPATH, xp)))
@@ -269,6 +269,21 @@ def click_continue(driver):
         '//button[not(@disabled) and (contains(normalize-space(.),"Continue application") or .//span[normalize-space()="Continue application"])]',
         '//button[not(@disabled) and (contains(normalize-space(.),"Continue to review") or .//span[normalize-space()="Continue to review"])]',
     ])
+
+def click_add_cover(driver):
+        # Switch to iframe if exists
+    iframes = driver.find_elements(By.TAG_NAME, "iframe")
+    for iframe in iframes:
+        try:
+            driver.switch_to.frame(iframe)
+            element = driver.find_element(By.XPATH, "//a[@aria-label='Add Supporting documents']")
+            _safe_click(driver, element)
+            driver.switch_to.default_content()
+            return True
+        except:
+            driver.switch_to.default_content()
+            continue
+    return False
 
 def click_submit(driver):
     return _click_first(driver, [

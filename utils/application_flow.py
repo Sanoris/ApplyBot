@@ -5,8 +5,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException, TimeoutException, NoSuchElementException
+from utils.ai_utils import cover_letter_ai
 from utils.browser_utils import _safe_click, human_scroll_and_hover, human_sleep, wait_for_url_settled, is_recaptcha_present
-from .form_utils import click_apply, click_continue, click_submit, try_autofill, try_autofill_options, try_autofill_selects
+from .form_utils import click_apply, click_continue, click_submit, try_autofill, try_autofill_options, try_autofill_selects, click_add_cover
 from .logging_utils import log_missed_questions, log_job
 from .memory_utils import recall_answer
 from .question_utils import extract_questions_with_elements, has_answer_on_page, pause_and_remember_questions, prefill_from_memory, remember_present_answers_without_pause
@@ -70,7 +71,7 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
                 URLS[url] += 1
             else:
                 URLS[url] = 1
-            if URLS[url] >= 3:
+            if URLS[url] >= 5:
                 print("Already visited this URL 3 times; aborting to avoid loop.")
                 done = True
                 break
@@ -134,12 +135,17 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
                 wait_for_url_settled(driver, timeout=20, settle_time=0.8, max_hops=3)
 
             elif "/form/review" in url:
+                if(URLS[url]==1):
+                    click_add_cover(driver)
+                    wait_for_url_settled(driver, timeout=20, settle_time=0.8, max_hops=3)
+                    continue
+
                 if is_recaptcha_present(driver):
                     print("!!!!!!!!!!!reCAPTCHA detected on review page; cannot proceed automatically.!!!!!!!!!!!")
                     test = input("Please complete reCAPTCHA in browser, then press Enter here to continue...")
                     test = None
                     print("Continuing after reCAPTCHA...")
-                    done = True
+
                 if click_submit(driver):
                     print(f"====== Application complete! ======\n\n")
                     log_job(job_obj.get("title"), job_obj.get("company"), job_obj.get("url") or "", job_obj.get("status") or "", job_obj.get("desc") or "")
@@ -148,7 +154,8 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
                 else:
                     click_continue(driver)
                     wait_for_url_settled(driver, timeout=20, settle_time=0.8, max_hops=3)
-
+            elif ("/additional-documents" in url):
+                cover_letter_navigate(driver, desc=job_obj.get("desc") or "")
             elif ("postresumeapply" in url):
                 wait_for_url_settled(driver, timeout=4, settle_time=0.8, max_hops=3)
 
@@ -191,3 +198,36 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
         pass
 
     return True
+
+def cover_letter_navigate(driver, desc):
+    try:
+        el = driver.find_element(By.XPATH, "//*[@data-testid='cover-letter-radio-card-label']")
+        _safe_click(driver, el)
+
+        cover_text = cover_letter_ai(desc) or ""
+            
+        textarea = driver.find_element(By.XPATH, "//textarea[@data-testid='cover-letter-radio-card-text-area']")
+
+        # Try to click clear button if available and enabled
+        try:
+            clear_button = driver.find_element(By.XPATH, "//*[@data-testid='cover-letter-radio-card-clear-button']")
+            if clear_button.get_attribute("aria-disabled") == "false":
+                clear_button.click()
+                time.sleep(0.5)  # wait a bit for clear to take effect
+                el = driver.find_element(By.XPATH, "//*[@data-testid='confirm-dialog-confirm-button']")
+                _safe_click(driver, el)
+            else:
+                # If disabled, clear textarea directly
+                textarea.clear()
+        except:
+            # Fallback: clear textarea directly
+            textarea.clear()
+
+        _safe_click(driver, textarea)
+        textarea.send_keys(cover_text)
+
+        if click_continue(driver):
+            #time.sleep(2)
+            wait_for_url_settled(driver, timeout=10, settle_time=0.8, max_hops=3)
+    except Exception as e:
+        print(f"Cover letter generation failed: {e}")
