@@ -163,7 +163,7 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
                 break
             elif("/resume-module/relevant-experience" in url):
                 if click_continue(driver):
-                    time.sleep(10)
+                    #time.sleep(2)
                     wait_for_url_settled(driver, timeout=10, settle_time=0.8, max_hops=3)
             else:
                 # Unknown step—try Continue and settle
