@@ -117,17 +117,17 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
                     for i, q in enumerate(missing_required, 1):
                         print(f"  {i}. [{q['kind']}] {q['question']}")
 
-                    if (True):
+                    '''if (True):
                         print("Skipping manual input as per configuration.")
                         done = True
                         break
                     print("Fill these in the browser (do NOT click Continue).")
                     input("Press ENTER here when finished to save your answers... ")
                     # read *all* answers on the page and persist (covers required + any others you just set)
-                    pause_and_remember_questions(driver)
-                #else:
+                    pause_and_remember_questions(driver)'''
+                else:
                     # 4) No pause; optionally record any prefilled answers that weren't in memory yet
-                remember_present_answers_without_pause(driver, questions, mem)
+                    remember_present_answers_without_pause(driver, questions, mem)
 
                 # 5) Proceed
                 click_continue(driver)
@@ -143,7 +143,7 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
                 if click_submit(driver):
                     print(f"====== Application complete! ======\n\n")
                     log_job(job_obj.get("title"), job_obj.get("company"), job_obj.get("url") or "", job_obj.get("status") or "", job_obj.get("desc") or "")
-                    wait_for_url_settled(driver, timeout=20, settle_time=0.8, max_hops=3)
+                    wait_for_url_settled(driver, timeout=5, settle_time=0.8, max_hops=3)
                     done = True
                 else:
                     click_continue(driver)
