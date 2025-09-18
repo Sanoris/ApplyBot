@@ -77,8 +77,8 @@ def remember_present_answers_without_pause(driver, questions, mem):
     saved = 0
     for q in questions:
         # Check if we already have an equivalent question in memory using fuzzy matching
-        if is_equivalent_question_in_memory(mem, q["question"]):
-            continue  # already known (fuzzy match)
+        #if is_equivalent_question_in_memory(mem, q["question"]):
+            #continue  # already known (fuzzy match)
         
         val = get_current_answer(driver, q)
         if not val or (isinstance(val, list) and not val):
@@ -232,15 +232,15 @@ def prefill_from_memory(driver, questions, mem):
         if adapted_ans is None:
             if q["kind"] in ("radio", "checkbox") and len(q["options"]) < 2:
                 _click_option(driver, q["options"][0])
-                print(f"[{q['kind']}] Only one option for '{q['question'][:60]}…', auto-selecting it.")
+                print(f" - [{q['kind']}] Only one option for '{q['question'][:60]}…', auto-selecting it.")
             continue
-
+        print(f"[{q['kind']}] Q: {q["question"]}")    
         if q["kind"] == "radio":
             if len(q["options"]) < 2:
                 inp = _resolve(driver, q["options"][0]["input"], q["options"][0]["input_locator"])
                 if inp and not _is_selected(inp):
                     _click_option(driver, q["options"][0])
-                    print(f"[{q['kind']}] Only one option for '{q['question'][:60]}…', auto-selecting it.")
+                    print(f"\t[{q['kind']}] Only one option for '{q['question'][:25]}…', auto-selecting it.")
                     continue
 
             # Find the best matching option using fuzzy matching
@@ -251,14 +251,13 @@ def prefill_from_memory(driver, questions, mem):
                 if score > best_score and score >= 75:  # 75% similarity threshold
                     best_score = score
                     best_match = opt
-            
             if best_match:
                 _click_option(driver, best_match)
-                print(f"[{q['kind']}] Fuzzy matched '{adapted_ans}' to '{best_match['label']}' (score: {best_score})")
+                print(f"\t[{q['kind']}] Fuzzy matched '{adapted_ans}' to '{best_match['label']}' (score: {best_score})")
             else:
                 # Fallback to first option if no good match found
                 _click_option(driver, q["options"][0])
-                print(f"[{q['kind']}] No good match found for '{adapted_ans}', selected first option")
+                print(f"\t[{q['kind']}] No good match found for '{adapted_ans}', selected first option")
 
         elif q["kind"] == "checkbox":
             if not isinstance(adapted_ans, (list, tuple)):
@@ -286,11 +285,11 @@ def prefill_from_memory(driver, questions, mem):
                 is_on = _is_selected(inp)
                 if should_be_on and not is_on:
                     _click_option(driver, opt)
-                    print(f"[{q['kind']}] Selected '{opt['label']}' based on fuzzy match")
+                    print(f"\t[{q['kind']}] Selected '{opt['label']}' based on fuzzy match")
                 elif not should_be_on and is_on:
                     # Optionally deselect if it shouldn't be selected
                     _click_option(driver, opt)
-                    print(f"[{q['kind']}] Deselected '{opt['label']}'")
+                    print(f"\t[{q['kind']}] Deselected '{opt['label']}'")
 
         elif q["kind"] in ("text", "textarea"):
             el = _resolve(driver, q["input"], q["input_locator"])
@@ -299,7 +298,7 @@ def prefill_from_memory(driver, questions, mem):
                 if current.strip() != str(adapted_ans).strip():
                     el.clear()
                     el.send_keys(str(adapted_ans))
-                    print(f"[{q['kind']}] Filled '{q['question'][:60]}…' with '{adapted_ans}'")
+                    print(f"\t[{q['kind']}] Filled '{q['question'][:60]}…' with '{adapted_ans}'")
 
         elif q["kind"] == "select":
             el = _resolve(driver, q["input"], q["input_locator"])
@@ -311,7 +310,7 @@ def prefill_from_memory(driver, questions, mem):
             try:
                 # First, try to select by visible text with exact match
                 select_by_visible_text(Select(el), want_text)
-                print(f"[{q['kind']}] Selected '{want_text}' by exact text")
+                print(f"\t[{q['kind']}] Selected '{want_text}' by exact text")
                 
             except Exception as e:
                 print(f"Failed to select by exact text for '{q['question']}': {e}")
@@ -333,7 +332,7 @@ def prefill_from_memory(driver, questions, mem):
                     if best_option:
                         try:
                             select_by_visible_text(Select(el), best_option)
-                            print(f"[{q['kind']}] Fuzzy matched '{want_text}' to '{best_option}' (score: {best_score})")
+                            print(f"\t[{q['kind']}] Fuzzy matched '{want_text}' to '{best_option}' (score: {best_score})")
                         except Exception:
                             # Final fallback: click the option element directly
                             for op in opts:
@@ -341,7 +340,7 @@ def prefill_from_memory(driver, questions, mem):
                                     _safe_click(driver, op)
                                     break
                     else:
-                        print(f"[{q['kind']}] No good match found for '{want_text}' in options")
+                        print(f"\t[{q['kind']}] No good match found for '{want_text}' in options")
 
 def _question_key(q):
     """
