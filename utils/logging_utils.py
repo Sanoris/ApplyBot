@@ -6,17 +6,19 @@ from datetime import datetime
 from utils.memory_utils import _load_counts, _save_counts, _append_rows_csv
 from utils.question_utils import _question_key
 
+def get_daily_log_path():
+    return f"{LOG_FILE + datetime.now().strftime('%Y%m%d')}.csv"
 
 def init_log():
-    if not os.path.exists(LOG_FILE):
-        with open(LOG_FILE, mode='w', newline='') as file:
+    if not os.path.exists(get_daily_log_path()):
+        with open(get_daily_log_path(), mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["Timestamp", "Job Title", "Company", "Job URL", "Status"])
+            writer.writerow(["Timestamp", "Job Title", "Company", "Job URL", "$$$", "Description"])
 
-def log_job(title, company, url, status):
-    with open(LOG_FILE, mode='a', newline='') as file:
+def log_job(title, company, url, status, desc):
+    with open(get_daily_log_path(), mode='a', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow([datetime.now().isoformat(), title, company, url, status])
+        writer.writerow([datetime.now().isoformat(), title, company, url, status, desc])
 
 def log_missed_questions(driver, missing_required):
     """

@@ -2,7 +2,8 @@ from config.config import *
 import os
 import csv
 import json
-from utils.text_utils import _norm, _normalize_q
+from utils.answer_utils import adapt_answer_to_question
+from utils.text_utils import _norm, _normalize_q, fuzzy_match_question
 from datetime import datetime
 
 def _append_rows_csv(path, rows, header):
@@ -65,7 +66,28 @@ def remember_answer(mem, question_text, answer, kind=None):
     save_qa_memory(mem)
 
 def recall_answer(mem, question_text):
-    key = _normalize_q(question_text)
-    rec = mem.get(key)
-    return (rec or {}).get("answer")
+    """Find the best matching answer using fuzzy question matching"""
+    norm_current = _normalize_q(question_text)
+    
+    # First try exact match
+    exact_key = next((k for k in mem.keys() if _normalize_q(k) == norm_current), None)
+    if exact_key:
+        return mem[exact_key].get("answer")
+    
+    # Then try fuzzy match
+    for stored_question, data in mem.items():
+        if fuzzy_match_question(stored_question, question_text):
+            return data.get("answer")
+    
+    return None
+
+def get_adapted_answer(mem, current_question, available_options=None):
+    """
+    Get and adapt a stored answer for the current question
+    """
+    stored_answer = recall_answer(mem, current_question)
+    if stored_answer is None:
+        return None
+    
+    return adapt_answer_to_question(stored_answer, current_question, available_options)
 

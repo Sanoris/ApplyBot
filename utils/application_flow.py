@@ -7,9 +7,9 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException, TimeoutException, NoSuchElementException
 from utils.browser_utils import _safe_click, human_scroll_and_hover, human_sleep, wait_for_url_settled, is_recaptcha_present
 from .form_utils import click_apply, click_continue, click_submit, try_autofill, try_autofill_options, try_autofill_selects
-from .logging_utils import log_missed_questions
+from .logging_utils import log_missed_questions, log_job
 from .memory_utils import recall_answer
-from .question_utils import extract_questions_with_elements, has_answer_on_page, pause_and_remember_questions, prefill_from_memory
+from .question_utils import extract_questions_with_elements, has_answer_on_page, pause_and_remember_questions, prefill_from_memory, remember_present_answers_without_pause
 
 def go_to_job(driver, root, mem):
     job_cards = driver.find_elements(By.XPATH, "//div[contains(@class, 'cardOutline') and .//*[contains(text(), 'Easily apply')] and not(.//*[contains(text(), 'Visited')])]")    
@@ -23,18 +23,23 @@ def go_to_job(driver, root, mem):
                 WebDriverWait(driver, 5).until(EC.element_to_be_clickable(job)).click()
                 human_sleep(2, 3)
                 desc = driver.find_element(By.ID, "jobDescriptionText")
+                title = driver.find_element(By.XPATH, "//h2[contains(@data-testid, 'jobsearch-JobInfoHeader-title')]")
+                company = driver.find_element(By.XPATH, "//div[contains(@data-testid, 'inlineHeader-companyName')]")
+                job_url = company.find_element(By.TAG_NAME, "a").get_attribute("href") or ""
+                status = driver.find_element(By.ID, "salaryInfoAndJobType") or ""
+                job_obj = {"desc": desc.text, "title": title.text, "company": company.text or "", "url": job_url or "", "status": status.text or "???"}
                 if "clearance" in (desc.text or "").lower():
                     print("Skipping job requiring clearance")
                     continue
                 print("\n\n----- NEW JOB START -----")
                 click_apply(driver)  # opens new tab
                 time.sleep(2)
-                handle_application(driver, root, mem)  # <— walk the flow, answer, submit
+                handle_application(driver, root, mem, job_obj)  # <— walk the flow, answer, submit
         except Exception as e:
             print(f"Skip job: {e}")
     return None, None
 
-def handle_application(driver, root, mem, timeout=20):
+def handle_application(driver, root, mem, job_obj, timeout=20):
     """
     Switches to the new tab, walks the Indeed flow based on URL,
     answers questions (with memory), and submits at review.
@@ -122,7 +127,7 @@ def handle_application(driver, root, mem, timeout=20):
                     pause_and_remember_questions(driver)
                 #else:
                     # 4) No pause; optionally record any prefilled answers that weren't in memory yet
-                    #remember_present_answers_without_pause(driver, questions, mem)
+                remember_present_answers_without_pause(driver, questions, mem)
 
                 # 5) Proceed
                 click_continue(driver)
@@ -136,6 +141,8 @@ def handle_application(driver, root, mem, timeout=20):
                     print("Continuing after reCAPTCHA...")
                     done = True
                 if click_submit(driver):
+                    print(f"====== Application complete! ======\n\n")
+                    log_job(job_obj.get("title"), job_obj.get("company"), job_obj.get("url") or "", job_obj.get("status") or "", job_obj.get("desc") or "")
                     wait_for_url_settled(driver, timeout=20, settle_time=0.8, max_hops=3)
                     done = True
                 else:

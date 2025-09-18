@@ -29,7 +29,7 @@ def try_autofill(driver, mem, questions):
         if (recall_answer(mem, qtext) is not None):
             continue
         
-        txt = application_field(qtext)
+        txt = application_field(qtext, q)
         if txt is None:
             continue
 
@@ -90,7 +90,7 @@ def try_autofill_selects(driver, mem, questions):
 
         # 3) model choose
         if not choice:
-            choice = application_select(q["question"], option_texts)
+            choice = application_select(q["question"], option_texts, q)
 
         if not choice:
             continue
@@ -151,7 +151,7 @@ def try_autofill_options(driver, mem, questions):
 
         # 3) Use AI to pick an option
         if not choice:
-            choice = application_select(qtext, option_texts)
+            choice = application_select(qtext, option_texts, q)
 
         if choice:
             # Find and click the chosen option's label.

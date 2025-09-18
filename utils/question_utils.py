@@ -6,9 +6,11 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException, TimeoutException, NoSuchElementException
 from utils.browser_utils import _resolve, _safe_click, _click_option, _locator_for_input, _locator_for_el
-from utils.memory_utils import recall_answer, remember_answer
-from utils.text_utils import _norm, _normalize_q
+from utils.memory_utils import recall_answer, remember_answer, get_adapted_answer
+from utils.text_utils import _norm, _normalize_q, fuzzy_match_question, normalize_answer
 import hashlib
+from fuzzywuzzy import fuzz
+
 
 def select_by_visible_text(selfie, text: str):
     """Select all options that display text matching the argument. That is,
@@ -74,21 +76,81 @@ def remember_present_answers_without_pause(driver, questions, mem):
     """If page already has answers (e.g., defaults) and we don't have them in memory, save them."""
     saved = 0
     for q in questions:
-        if recall_answer(mem, q["question"]) is not None:
-            continue  # already known
+        # Check if we already have an equivalent question in memory using fuzzy matching
+        if is_equivalent_question_in_memory(mem, q["question"]):
+            continue  # already known (fuzzy match)
+        
         val = get_current_answer(driver, q)
+        if not val or (isinstance(val, list) and not val):
+            continue  # no answer to save
+        
+        # Normalize and standardize the answer before saving using the existing normalize_answer function
+        normalized_val = normalize_answer_for_storage(val, q["kind"])
+        
         if q["kind"] == "checkbox":
-            if val:  # list
-                remember_answer(mem, q["question"], val, kind="checkbox"); saved += 1
+            remember_answer(mem, q["question"], normalized_val, kind="checkbox")
+            saved += 1
         elif q["kind"] in ("radio", "text", "textarea"):
-            if val:
-                remember_answer(mem, q["question"], val, kind=q["kind"]); saved += 1
+            remember_answer(mem, q["question"], normalized_val, kind=q["kind"])
+            saved += 1
         elif q["kind"] == "select":
-            if isinstance(val, dict) and (val.get("value") or val.get("text")):
-                remember_answer(mem, q["question"], val, kind="select"); saved += 1
-        # info → ignore
+            if isinstance(normalized_val, dict) and (normalized_val.get("value") or normalized_val.get("text")):
+                remember_answer(mem, q["question"], normalized_val, kind="select")
+                saved += 1
+    
     if saved:
         print(f"[memory] Recorded {saved} prefilled answer(s) without pause.")
+
+def is_equivalent_question_in_memory(mem, current_question):
+    """Check if a similar question already exists in memory"""
+    current_norm = _normalize_q(current_question)
+    
+    for stored_question in mem.keys():
+        if stored_question == "_slots":  # Skip the slots section
+            continue
+        if fuzzy_match_question(stored_question, current_norm):
+            return True
+    
+    return False
+
+def normalize_answer_for_storage(answer, answer_kind):
+    """Normalize answers for consistent storage using the existing normalize_answer function"""
+    if answer is None:
+        return None
+    
+    if answer_kind in ("radio", "select"):
+        return normalize_single_answer(answer)
+    elif answer_kind == "checkbox":
+        return normalize_multiple_answers(answer)
+    elif answer_kind in ("text", "textarea"):
+        return normalize_text_answer(answer)
+    
+    return answer
+
+def normalize_single_answer(answer):
+    """Normalize single-choice answers using the existing normalize_answer"""
+    if isinstance(answer, dict):
+        # For select answers with text/value - normalize both
+        normalized_text = normalize_answer(answer.get("text", ""))
+        normalized_value = normalize_answer(answer.get("value", ""))
+        return {"text": normalized_text, "value": normalized_value}
+    else:
+        # For radio buttons and simple select values
+        return normalize_answer(str(answer))
+
+def normalize_multiple_answers(answer):
+    """Normalize multiple-choice answers using the existing normalize_answer"""
+    if not isinstance(answer, list):
+        answer = [answer]
+    
+    return [normalize_answer(str(item)) for item in answer if item]
+
+def normalize_text_answer(answer):
+    """Normalize text answers - use as-is but ensure string format"""
+    if isinstance(answer, dict):
+        # Handle cases where text answer might be in a dict structure
+        return str(answer.get("text", answer.get("value", "")))
+    return str(answer)
 
 
 def pause_and_remember_questions(driver):
@@ -154,13 +216,23 @@ def pause_and_remember_questions(driver):
 
 
 def prefill_from_memory(driver, questions, mem):
-    """Apply remembered answers without pausing."""
+    """Apply remembered answers using fuzzy matching"""
     for q in questions:
-        ans = recall_answer(mem, q["question"])
-        if ans is None:
-            if  (q["kind"] in ("radio", "checkbox") and len(q["options"]) < 2):
+        # Get available options for matching
+        available_options = None
+        if q["kind"] in ("radio", "checkbox") and q["options"]:
+            available_options = [opt["label"] for opt in q["options"]]
+        elif q["kind"] == "select":
+            el = _resolve(driver, q["input"], q["input_locator"])
+            if el:
+                available_options = [o.text for o in el.find_elements(By.TAG_NAME, "option") if o.text.strip()]
+        
+        # Get adapted answer
+        adapted_ans = get_adapted_answer(mem, q["question"], available_options)
+        if adapted_ans is None:
+            if q["kind"] in ("radio", "checkbox") and len(q["options"]) < 2:
                 _click_option(driver, q["options"][0])
-                print(f"[radio] Only one option for '{q['question'][:60]}…', auto-selecting it.")
+                print(f"[{q['kind']}] Only one option for '{q['question'][:60]}…', auto-selecting it.")
             continue
 
         if q["kind"] == "radio":
@@ -168,62 +240,108 @@ def prefill_from_memory(driver, questions, mem):
                 inp = _resolve(driver, q["options"][0]["input"], q["options"][0]["input_locator"])
                 if inp and not _is_selected(inp):
                     _click_option(driver, q["options"][0])
-                    print(f"[radio] Only one option for '{q['question'][:60]}…', auto-selecting it.")
+                    print(f"[{q['kind']}] Only one option for '{q['question'][:60]}…', auto-selecting it.")
                     continue
 
-            target = next((o for o in q["options"] if o["label"].strip().lower() == str(ans).strip().lower()), None)
-            if target:
-                _click_option(driver, target)
+            # Find the best matching option using fuzzy matching
+            best_match = None
+            best_score = 0
+            for opt in q["options"]:
+                score = fuzz.token_sort_ratio(_norm(opt["label"]), _norm(str(adapted_ans)))
+                if score > best_score and score >= 75:  # 75% similarity threshold
+                    best_score = score
+                    best_match = opt
+            
+            if best_match:
+                _click_option(driver, best_match)
+                print(f"[{q['kind']}] Fuzzy matched '{adapted_ans}' to '{best_match['label']}' (score: {best_score})")
             else:
-                 _click_option(driver, q["options"][0])  # fallback to first option
+                # Fallback to first option if no good match found
+                _click_option(driver, q["options"][0])
+                print(f"[{q['kind']}] No good match found for '{adapted_ans}', selected first option")
 
         elif q["kind"] == "checkbox":
-            if not isinstance(ans, (list, tuple)):
-                continue
+            if not isinstance(adapted_ans, (list, tuple)):
+                adapted_ans = [adapted_ans]
+            
             if len(q["options"]) == 1:
                 _click_option(driver, q["options"][0])
                 continue
-            ans_set = {str(a).strip().lower() for a in ans}
+            
+            # Convert adapted answers to normalized set for comparison
+            adapted_set = {_norm(str(a)) for a in adapted_ans}
+            
             for opt in q["options"]:
                 inp = _resolve(driver, opt["input"], opt["input_locator"])
                 if not inp: 
                     continue
-                should_be_on = opt["label"].strip().lower() in ans_set
+                
+                # Check if this option should be selected using fuzzy matching
+                opt_norm = _norm(opt["label"])
+                should_be_on = any(
+                    fuzz.token_sort_ratio(opt_norm, _norm(adapted_ans_item)) >= 75
+                    for adapted_ans_item in adapted_ans
+                )
+                
                 is_on = _is_selected(inp)
                 if should_be_on and not is_on:
                     _click_option(driver, opt)
-                # (optional) if is_on and not should_be_on: click to turn off
+                    print(f"[{q['kind']}] Selected '{opt['label']}' based on fuzzy match")
+                elif not should_be_on and is_on:
+                    # Optionally deselect if it shouldn't be selected
+                    _click_option(driver, opt)
+                    print(f"[{q['kind']}] Deselected '{opt['label']}'")
 
         elif q["kind"] in ("text", "textarea"):
             el = _resolve(driver, q["input"], q["input_locator"])
             if el:
                 current = (el.get_attribute("value") or "")
-                if current.strip() != str(ans).strip():
+                if current.strip() != str(adapted_ans).strip():
                     el.clear()
-                    el.send_keys(str(ans))
+                    el.send_keys(str(adapted_ans))
+                    print(f"[{q['kind']}] Filled '{q['question'][:60]}…' with '{adapted_ans}'")
 
         elif q["kind"] == "select":
             el = _resolve(driver, q["input"], q["input_locator"])
             if not el:
                 continue
             
-            want_text = ans.get("text") if isinstance(ans, dict) else str(ans)
+            want_text = adapted_ans.get("text") if isinstance(adapted_ans, dict) else str(adapted_ans)
             
             try:
-                # First, try to select by visible text
+                # First, try to select by visible text with exact match
                 select_by_visible_text(Select(el), want_text)
+                print(f"[{q['kind']}] Selected '{want_text}' by exact text")
                 
             except Exception as e:
-                print(f"Failed to select by text for '{q['question']}': {e}")
-                # Fallback to a custom search if the direct method fails
-                try:
-                    opts = el.find_elements(By.TAG_NAME, "option")
-                    for op in opts:
-                        if (op.text or "").strip().lower() == str(want_text).strip().lower():
-                            _safe_click(driver, op)
-                            break
-                except Exception as e_fallback:
-                    print(f"Fallback selection failed for '{q['question']}': {e_fallback}")
+                print(f"Failed to select by exact text for '{q['question']}': {e}")
+                
+                # Fallback to fuzzy matching with options
+                opts = el.find_elements(By.TAG_NAME, "option")
+                option_texts = [o.text.strip() for o in opts if o.text.strip()]
+                
+                if option_texts:
+                    # Find best fuzzy match
+                    best_option = None
+                    best_score = 0
+                    for opt_text in option_texts:
+                        score = fuzz.token_sort_ratio(_norm(opt_text), _norm(want_text))
+                        if score > best_score and score >= 75:
+                            best_score = score
+                            best_option = opt_text
+                    
+                    if best_option:
+                        try:
+                            select_by_visible_text(Select(el), best_option)
+                            print(f"[{q['kind']}] Fuzzy matched '{want_text}' to '{best_option}' (score: {best_score})")
+                        except Exception:
+                            # Final fallback: click the option element directly
+                            for op in opts:
+                                if op.text.strip() == best_option:
+                                    _safe_click(driver, op)
+                                    break
+                    else:
+                        print(f"[{q['kind']}] No good match found for '{want_text}' in options")
 
 def _question_key(q):
     """

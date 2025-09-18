@@ -5,12 +5,12 @@ from openai import OpenAI
 
 
 
-def application_select(question: str, options: list[str]) -> str | None:
+def application_select(question: str, options: list[str], qDict: dict) -> str | None:
     """Return a number of years (float) or None if unknown."""
     if(not USE_OPENAI):
         return None
     client = OpenAI(api_key=OPENAI_KEY)
-    print(f"Autofilling for question: {question}")
+    print(f"[{qDict["kind"] or "huh??"}] Autofilling for question: {question}")
     text = load_resume_text(RESUME_PATH)[:MAX_RESUME_CHARS]
     slim_opts = options[:20]
     # Ask for JUST a number; robustly parse the first number back.
@@ -47,12 +47,12 @@ def application_select(question: str, options: list[str]) -> str | None:
         print("[select] API choose_option failed:", e)
     return None
 
-def application_field(question: str) -> str | None:
+def application_field(question: str, qDict: dict) -> str | None:
     """Return a number of years (float) or None if unknown."""
     if(not USE_OPENAI):
         return None
     client = OpenAI(api_key=OPENAI_KEY)
-    print(f"Autofilling for question: {question}")
+    print(f"[{qDict["kind"] or "huh??"}] Autofilling for question: {question}")
     text = load_resume_text(RESUME_PATH)[:MAX_RESUME_CHARS]
     # Ask for JUST a number; robustly parse the first number back.
     messages = [
