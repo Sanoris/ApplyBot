@@ -1,0 +1,6 @@
+undetected-chromedriver
+selenium
+openai
+fuzzywuzzy
+python-Levenshtein
+sentence-transformers

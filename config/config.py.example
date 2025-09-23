@@ -1,0 +1,96 @@
+import re
+
+# --- Chrome Profile Settings ---
+# The bot needs its own Chrome profile to remember your Indeed login.
+# IMPORTANT: Use a raw string (r"...") or forward slashes for the path to avoid errors.
+PROFILE_PATH = "F:/Docs/Code-Work/ApplyBot/browser" # Change this to an absolute path on your machine
+PROFILE_NAME = "Default"
+
+# --- Indeed Search URL ---
+# Copy the URL from your browser after making a search on Indeed.
+# Example: "https://www.indeed.com/jobs?q=python+developer&l=Remote"
+SEARCH_URL = "https://www.indeed.com/jobs?q=Software+Engineer&l=Remote&fromage=1"
+
+# --- Resume Path ---
+RESUME_PATH = "./config/resume.txt"
+
+# --- OpenAI API Settings ---
+# Set USE_OPENAI to False to disable all AI features (cover letters, question answering).
+# The bot will rely only on its memory and simple heuristics.
+USE_OPENAI = True
+OPENAI_KEY = "sk-YOUR_API_KEY_HERE" # Replace with your actual OpenAI API key
+OPENAI_MODEL = "gpt-5-nano"  # Or any other model you prefer
+skip_manual = True  # if True, will skip pausing for manual input on required unanswered questions
+
+# --- Logging Paths ---
+LOG_FILE = "./data/jobs_applied_"
+MISSED_Q_LOG_CSV = "./data/missed_questions.csv"
+MISSED_Q_COUNTS_JSON = "./data/missed_question_counts.json"
+
+
+# --- QA Memory Path ---
+QA_MEMORY_FILE = "./data/qa_memory.json"
+
+# --- AI Context Settings ---
+# Max characters of the resume/job description to send to the AI to stay within token limits.
+MAX_RESUME_CHARS = 4000
+MAX_DESC_CHARS = 4000
+max_chars = 400
+
+# --- Question Slot Patterns ---
+PLACEHOLDER_RE = re.compile(r'^\s*(select|choose|pick)\b', re.I)
+ERROR_TEXT_RE = re.compile(r"(answer this question|choose an option|this field is required|required)", re.I)
+
+SLOT_PATTERNS = { #NOTE: this does nothing unless you manually insert the slot answers into memory - commented out below <3
+    # URLs / profiles
+    "linkedin_url":  re.compile(r"(linkedin(\.com)?|link\s*ed\s*in|linkedin\s*profile|linkedin\s*url)", re.I),
+    "github_url":    re.compile(r"(github(\.com)?|git\s*hub|github\s*profile|github\s*url)", re.I),
+    "portfolio_url": re.compile(r"(portfolio|personal\s+(site|website)|website\s*url|site\s*url)", re.I),
+
+    # Common selects / facts
+    "country":        re.compile(r"\bcountry\b|\bregion\b|\bphone\s*country\b", re.I),
+    "state":          re.compile(r"\bstate\b(?!ment)|\bprovince\b|\bterritory\b", re.I),
+    "work_auth":      re.compile(r"(work\s*authorization|authorized\s*to\s*work|legally)", re.I),
+    #"education_level":re.compile(r"(education\s*level|highest\s*education|degree\s*level)", re.I),
+    #"relocate":       re.compile(r"(relocat(e|ion)|willing\s*to\s*relocate)", re.I),
+    #"travel_pct":     re.compile(r"(travel\s*(percent|percentage)|willing\s*to\s*travel)", re.I),
+    #"salary":         re.compile(r"(salary|compensation|wage)", re.I),
+    #"experience":     re.compile(r"years.*experience", re.I),
+    #"need_sponsorship":      re.compile(r"now.*future.*sponsor", re.I),
+}
+
+"""
+"_slots": {
+    "country": {
+      "text": "United States"
+    },
+    "state": {
+      "text": "Texas"
+    },
+    "education_level": {
+      "text": "Bachelor"
+    },
+    "linkedin_url": {
+      "text": "linkedin.com/in/matth95"
+    },
+    "github_url": {
+      "text": "https://github.com/Sanoris"
+    },
+    "portfolio_url": {
+      "text": "https://github.com/Sanoris"
+    },
+    "salary": {
+      "text": "120000"
+    },
+    "experience": {
+      "text": "5"
+    },
+    "work_auth": {
+      "text": "Yes"
+    },
+    "need_sponsor": {
+      "text": "No"
+    }
+  }
+  
+  """
