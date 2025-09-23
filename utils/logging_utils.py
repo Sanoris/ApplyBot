@@ -11,12 +11,12 @@ def get_daily_log_path():
 
 def init_log():
     if not os.path.exists(get_daily_log_path()):
-        with open(get_daily_log_path(), mode='w', newline='') as file:
+        with open(get_daily_log_path(), mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(["Timestamp", "Job Title", "Company", "Job URL", "$$$", "Description"])
 
 def log_job(title, company, url, status, desc):
-    with open(get_daily_log_path(), mode='a', newline='') as file:
+    with open(get_daily_log_path(), mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([datetime.now().isoformat(), title, company, url, status, desc])
 

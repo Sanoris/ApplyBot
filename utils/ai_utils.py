@@ -4,6 +4,16 @@ from config.config import *
 from openai import OpenAI
 from datetime import datetime
 
+def ai_funnel(messages):
+    if(not USE_OPENAI):
+        return None
+    client = OpenAI(api_key=OPENAI_KEY)
+    response = client.responses.create(
+        model=OPENAI_MODEL,
+        input=messages,
+    )
+    print(f"\t[AI] {response.output_text[:100] + ('...' if len(response.output_text)>100 else '')}")
+    return response
 
 def application_select(question: str, options: list[str], qDict: dict, desc: str) -> str | None:
     """Return a number of years (float) or None if unknown."""
@@ -12,7 +22,7 @@ def application_select(question: str, options: list[str], qDict: dict, desc: str
     client = OpenAI(api_key=OPENAI_KEY)
     print(f"[{qDict["kind"] or "huh??"}] Autofilling for question: {question}")
     text = load_resume_text(RESUME_PATH)[:MAX_RESUME_CHARS]
-    slim_opts = options[:20]
+    slim_opts = options[:99]
     # Ask for JUST a number; robustly parse the first number back.
     messages = [
         {
@@ -32,10 +42,7 @@ def application_select(question: str, options: list[str], qDict: dict, desc: str
         }
     ]
     try:
-        response = client.responses.create(
-            model=OPENAI_MODEL,
-            input=messages,
-        )
+        response = ai_funnel(messages)
         # Return exact match if present
         for o in slim_opts:
             if response.output_text == o:
@@ -84,11 +91,7 @@ def application_field(question: str, qDict: dict, desc: str) -> str | None:
         },
     ]
     try:
-        response = client.responses.create(
-            model=OPENAI_MODEL,
-            input=messages,
-        )
-        print(response.output_text)
+        response = ai_funnel(messages)
         return response.output_text
 
     except Exception as e:
@@ -170,11 +173,7 @@ def cover_letter_ai(desc: str) -> str | None:
         },
     ]
     try:
-        response = client.responses.create(
-            model=OPENAI_MODEL,
-            input=messages,
-        )
-        print(response.output_text)
+        response = ai_funnel(messages)
         return response.output_text
 
     except Exception as e:

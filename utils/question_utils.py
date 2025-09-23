@@ -548,14 +548,24 @@ def extract_questions_with_elements(driver, timeout=10):
     ]
     '''
     driver.implicitly_wait(0)
-    items = driver.find_elements(By.CSS_SELECTOR, ".ia-Questions-item")
+    items = driver.find_elements(By.CSS_SELECTOR, "div[id^='q_']")
+    
+    # Fallback to the original class-based selector if the new one fails.
+    if not items:
+        items = driver.find_elements(By.CSS_SELECTOR, ".ia-Questions-item")
+
     results = []
 
     for item in items:
         q_text = None
-        rich = item.find_elements(By.CSS_SELECTOR, '[data-testid="rich-text"] span')
-        if rich:
-            q_text = rich[0].text.strip()
+        if not q_text:
+            legend = item.find_elements(By.TAG_NAME, "legend")
+            if legend:
+                q_text = (legend[0].text or "").strip() or None
+        if not q_text:
+            rich = item.find_elements(By.CSS_SELECTOR, '[data-testid="rich-text"] span')
+            if rich:
+                q_text = rich[0].text.strip()
         if not q_text:
             info = item.find_elements(By.CSS_SELECTOR, '[data-testid="information-question"]')
             if info:
@@ -574,6 +584,7 @@ def extract_questions_with_elements(driver, timeout=10):
             continue
         entry = {"question": q_text, "required": required, "kind": None,
                  "element": item, "options": [], "input": None, "input_locator": None}
+
 
         radios = item.find_elements(By.CSS_SELECTOR, 'label > input[type="radio"]')
         if radios:
@@ -597,8 +608,8 @@ def extract_questions_with_elements(driver, timeout=10):
                 if(_is_selected(inp)):
                     entry["selected"] = label_text
             results.append(entry)
-            print(f"Extracted radio question: '{q_text[:50]}' with {len(entry['options'])} options\n")
-            print(f"\tOptions:\n\t" + "\n\t".join([o['label'] for o in entry['options']]))
+            #print(f"Extracted radio question: '{q_text[:50]}' with {len(entry['options'])} options\n")
+            #print(f"\tOptions:\n\t" + "\n\t".join([o['label'] for o in entry['options']]))
 
             continue
 
@@ -643,6 +654,8 @@ def extract_questions_with_elements(driver, timeout=10):
         entry["kind"] = "info"
         results.append(entry)
     driver.implicitly_wait(5)
+    temp = [i["question"][:25] for i in results]
     print(f"Extracted {len(results)} questions from the page.")
+    print(f"Questions Preview: {temp}")
     return results
 
