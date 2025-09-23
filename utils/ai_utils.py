@@ -5,7 +5,7 @@ from openai import OpenAI
 from datetime import datetime
 
 
-def application_select(question: str, options: list[str], qDict: dict) -> str | None:
+def application_select(question: str, options: list[str], qDict: dict, desc: str) -> str | None:
     """Return a number of years (float) or None if unknown."""
     if(not USE_OPENAI):
         return None
@@ -23,9 +23,10 @@ def application_select(question: str, options: list[str], qDict: dict) -> str | 
                 "choose the SINGLE best option based on the resume. "
                 "IMPORTANT: Respond with the option text EXACTLY as provided. "
                 "The user is a U.S. citizen. The correct answer to an inquiry about requiring sponsorship is 'No'"
+                "Resume:\n<<<\n" + text + "\n>>>\n"
+                "Job Description:\n<<<\n" + desc + "\n>>>\n"
                 f"Question: {question}\n"
                 f"Options:\n- " + "\n- ".join(slim_opts) + "\n\n"
-                "Resume:\n<<<\n" + text + "\n>>>\n"
                 "Answer with exactly one of the options or 'unknown'."
             ),
         }
@@ -47,7 +48,7 @@ def application_select(question: str, options: list[str], qDict: dict) -> str | 
         print("[select] API choose_option failed:", e)
     return None
 
-def application_field(question: str, qDict: dict) -> str | None:
+def application_field(question: str, qDict: dict, desc: str) -> str | None:
     """Return a number of years (float) or None if unknown."""
     if(not USE_OPENAI):
         return None
@@ -73,10 +74,11 @@ def application_field(question: str, qDict: dict) -> str | None:
         {
             "role": "user",
             "content": (
-                f"Question:\n{question}\n\n"
                 "Resume:\n<<<\n"
                 f"{text}\n"
                 ">>>\n\n"
+                "Job Description:\n<<<\n" + desc + "\n>>>\n"
+                f"Question:\n{question}\n\n"
                 "Return ONLY the filled answer text (no labels, no quotes, no markdown)."
             ),
         },

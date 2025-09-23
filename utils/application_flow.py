@@ -35,7 +35,7 @@ def go_to_job(driver, root, mem):
                 print("\n\n----- NEW JOB START -----")
                 click_apply(driver)  # opens new tab
                 time.sleep(2)
-                handle_application(driver, root, mem, job_obj)  # <— walk the flow, answer, submit
+                handle_application(driver, root, mem, job_obj, timeout=5)  # <— walk the flow, answer, submit
         except Exception as e:
             print(f"Skip job: {e}")
     return None, None
@@ -93,11 +93,11 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
                 print("Prefill done.")
                 
                 print("Trying autofill...")
-                try_autofill(driver, mem, questions)
+                try_autofill(driver, mem, questions, job_obj.get("desc") or "")
                 print("Trying autofill selects...")
-                try_autofill_selects(driver, mem, questions)
+                try_autofill_selects(driver, mem, questions, job_obj.get("desc") or "")
                 print("Trying autofill options...")
-                try_autofill_options(driver, mem, questions)
+                try_autofill_options(driver, mem, questions, job_obj.get("desc") or "")
                 print("Autofill done.")
                 # 2) Evaluate which required questions still lack answers
                 missing_required = []

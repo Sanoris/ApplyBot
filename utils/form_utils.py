@@ -12,7 +12,7 @@ from utils.text_utils import _norm
 from selenium.webdriver.common.by import By
 
 
-def try_autofill(driver, mem, questions):
+def try_autofill(driver, mem, questions, desc):
     """
     For required text/textarea questions,
     call API, type the value, and remember it.
@@ -29,7 +29,7 @@ def try_autofill(driver, mem, questions):
         if (recall_answer(mem, qtext) is not None):
             continue
         
-        txt = application_field(qtext, q)
+        txt = application_field(qtext, q, desc)
         if txt is None:
             continue
 
@@ -45,7 +45,7 @@ def try_autofill(driver, mem, questions):
             print(f"[years] Fill failed for '{qtext[:60]}…':", e)
     return filled
 
-def try_autofill_selects(driver, mem, questions):
+def try_autofill_selects(driver, mem, questions, desc):
     """
     For unanswered <select> questions, try:
       1) slot memory (generic)
@@ -90,7 +90,7 @@ def try_autofill_selects(driver, mem, questions):
 
         # 3) model choose
         if not choice:
-            choice = application_select(q["question"], option_texts, q)
+            choice = application_select(q["question"], option_texts, q, desc)
 
         if not choice:
             continue
@@ -105,7 +105,7 @@ def try_autofill_selects(driver, mem, questions):
             print(f"[select] Autofilled '{q['question'][:60]}…' with '{choice}'")
     return filled
 
-def try_autofill_options(driver, mem, questions):
+def try_autofill_options(driver, mem, questions, desc):
     """
     For unanswered radio/checkbox questions, try:
       1) memory recall
@@ -151,7 +151,7 @@ def try_autofill_options(driver, mem, questions):
 
         # 3) Use AI to pick an option
         if not choice:
-            choice = application_select(qtext, option_texts, q)
+            choice = application_select(qtext, option_texts, q, desc)
 
         if choice:
             # Find and click the chosen option's label.
