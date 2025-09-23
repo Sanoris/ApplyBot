@@ -194,6 +194,34 @@ def autofill_questions(driver):
     except Exception as e:
         print(f"Error autofilling questions: {e}")
 
+def try_autofill_availability(driver, mem, questions, desc):
+    """
+    For availability questions, provide a default answer.
+    """
+    filled = 0
+    for q in questions:
+        if q["kind"] != "availability":
+            continue
+
+        qtext = q.get("question") or ""
+        # already answered?
+        if has_answer_on_page(driver, q):
+            continue
+            
+        if q.get("availability_slots"):
+            # Answer the first availability slot
+            first_slot = q["availability_slots"][0]
+            if "Day" in first_slot and "Time" in first_slot:
+                try:
+                    Select(first_slot["Day"]).select_by_visible_text("Weekday")
+                    Select(first_slot["Time"]).select_by_visible_text("Anytime (8am - 9pm)")
+                    remember_answer(mem, qtext, {"day": "Weekday", "time": "Anytime (8am - 9pm)"}, kind="availability")
+                    filled += 1
+                    print(f"[availability] Autofilled '{qtext[:60]}…' with Weekday/Anytime")
+                except Exception as e:
+                    print(f"[availability] Fill failed for '{qtext[:60]}…':", e)
+    return filled
+
 def is_placeholder_option(op):
     t = _norm(op["text"])
     v = _norm(op["value"])

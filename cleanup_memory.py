@@ -256,5 +256,5 @@ def prune_redundant_questions():
     print("="*50)
 
 if __name__ == "__main__":
-    #cleanup_qa_memory()
-    prune_redundant_questions()
+    cleanup_qa_memory()
+    #prune_redundant_questions()

@@ -90,7 +90,7 @@ def remember_present_answers_without_pause(driver, questions, mem):
         if q["kind"] == "checkbox":
             remember_answer(mem, q["question"], normalized_val, kind="checkbox")
             saved += 1
-        elif q["kind"] in ("radio", "text", "textarea"):
+        elif q["kind"] in ("radio", "text", "textarea", "availability"):
             remember_answer(mem, q["question"], normalized_val, kind=q["kind"])
             saved += 1
         elif q["kind"] == "select":
@@ -463,6 +463,20 @@ def get_current_answer(driver, q):
             return {"text": sel.text.strip(), "value": sel.get_attribute("value")}
         except Exception:
             return None
+    if kind == "availability":
+        try:
+            slot = q["availability_slots"][0]
+            day_select = Select(slot["Day"])
+            time_select = Select(slot["Time"])
+            
+            day = day_select.first_selected_option.text
+            time = time_select.first_selected_option.text
+            
+            # Only return a value if both have been selected
+            if day and time:
+                return {"day": day, "time": time}
+        except Exception:
+            return None
     return None  # info
 
 def has_answer_on_page(driver, q):
@@ -585,6 +599,34 @@ def extract_questions_with_elements(driver, timeout=10):
         entry = {"question": q_text, "required": required, "kind": None,
                  "element": item, "options": [], "input": None, "input_locator": None}
 
+        if "interview" in q_text.lower() and item.find_elements(By.CSS_SELECTOR, 'select'):
+            selects = item.find_elements(By.TAG_NAME, "select")
+            slot_inputs = {}
+            
+            for select_el in selects:
+                try:
+                    select_id = select_el.get_attribute("id")
+                    if not select_id:
+                        continue
+                    
+                    # Find the label that is explicitly linked to this select element
+                    label_el = item.find_element(By.CSS_SELECTOR, f'label[for="{select_id}"]')
+                    label_text = label_el.text.strip()
+
+                    if "Day" in label_text:
+                        slot_inputs["Day"] = select_el
+                    elif "Time" in label_text:
+                        slot_inputs["Time"] = select_el
+                except NoSuchElementException:
+                    # This can happen if a select doesn't have a corresponding label, so we'll just ignore it
+                    continue
+
+            # Only create the "availability" question if we successfully found both Day and Time dropdowns
+            if "Day" in slot_inputs and "Time" in slot_inputs:
+                entry["kind"] = "availability"
+                entry["availability_slots"] = [slot_inputs]
+                results.append(entry)
+                continue
 
         radios = item.find_elements(By.CSS_SELECTOR, 'label > input[type="radio"]')
         if radios:

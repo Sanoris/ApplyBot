@@ -7,7 +7,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import StaleElementReferenceException, ElementClickInterceptedException, TimeoutException, NoSuchElementException
 from utils.ai_utils import cover_letter_ai
 from utils.browser_utils import _safe_click, human_scroll_and_hover, human_sleep, wait_for_url_settled, is_recaptcha_present
-from .form_utils import click_apply, click_continue, click_submit, try_autofill, try_autofill_options, try_autofill_selects, click_add_cover
+from .form_utils import click_apply, click_continue, click_submit, try_autofill, try_autofill_options, try_autofill_selects, click_add_cover, try_autofill_availability
 from .logging_utils import log_missed_questions, log_job
 from .memory_utils import recall_answer
 from .question_utils import extract_questions_with_elements, has_answer_on_page, pause_and_remember_questions, prefill_from_memory, remember_present_answers_without_pause
@@ -21,7 +21,11 @@ def go_to_job(driver, root, mem):
             if job:
                 print("Found job with easily apply button")
                 human_scroll_and_hover(driver, job)
+
                 WebDriverWait(driver, 5).until(EC.element_to_be_clickable(job)).click()
+
+                backup = job.find_elements(By.TAG_NAME, "a")[0]
+                _safe_click(driver, backup)
                 human_sleep(2, 3)
                 desc = driver.find_element(By.ID, "jobDescriptionText")
                 title = driver.find_element(By.XPATH, "//h2[contains(@data-testid, 'jobsearch-JobInfoHeader-title')]")
@@ -98,6 +102,8 @@ def handle_application(driver, root, mem, job_obj, timeout=20):
                 try_autofill_selects(driver, mem, questions, job_obj.get("desc") or "")
                 print("Trying autofill options...")
                 try_autofill_options(driver, mem, questions, job_obj.get("desc") or "")
+                print("Trying autofill availability...")
+                try_autofill_availability(driver, mem, questions, job_obj.get("desc") or "")
                 print("Autofill done.")
                 # 2) Evaluate which required questions still lack answers
                 missing_required = []
