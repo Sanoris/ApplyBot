@@ -58,7 +58,7 @@ The bot uses a dedicated Chrome profile to maintain your Indeed login session.
 2.  Run the bot for the first time using the command: `python applyBot.py`
 3.  The bot will open a new Chrome window. **Do not interact with the terminal yet.**
 4.  In the Chrome window, sign in to your Indeed account and solve any CAPTCHAs that appear.
-5.  Once you are logged in, you can close the Chrome window.
+5.  Once you have logged in, make sure to upload your resume to Indeed (the bot currently only selects the pre-existing option)
 6.  Go back to the terminal and press `Enter` to start the bot.
 
 # TIP: Use firefox to browse, and you can watch vidya while you observe the application process 
