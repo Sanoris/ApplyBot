@@ -74,6 +74,7 @@ applyBot.bat
 ```
 
 This script first ensures all previous Chrome instances are closed and then starts the main Python script.
+ProTip: You can set up a task scheduler event to run this .bat file. On for 2hours, off for 2hours seems to work the best
 
 ---
 
